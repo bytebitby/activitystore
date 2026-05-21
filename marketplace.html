@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Магазин Активностей Bitrix24</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f7f8; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { color: #333; }
+        .activity-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .activity-info h3 { margin: 0 0 5px 0; color: #2c3e50; }
+        .activity-info p { margin: 0; color: #7f8c8d; font-size: 14px; }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .status.enabled { background: #d4edda; color: #155724; }
+        .status.disabled { background: #f8d7da; color: #721c24; }
+        .status.registered { background: #cce5ff; color: #004085; }
+        
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .btn-enable { background: #28a745; color: white; }
+        .btn-enable:hover { background: #218838; }
+        .btn-disable { background: #dc3545; color: white; }
+        .btn-disable:hover { background: #c82333; }
+        .btn-loading { opacity: 0.6; cursor: not-allowed; }
+        
+        #log {
+            margin-top: 20px;
+            padding: 15px;
+            background: #2d2d2d;
+            color: #00ff00;
+            font-family: monospace;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛒 Магазин Активностей</h1>
+        <p>Управляйте подключением активностей для вашего портала.</p>
+        
+        <div id="activities-list">Загрузка списка...</div>
+        
+        <h3>Лог операций:</h3>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        const API_URL = './api'; // Относительный путь к API
+        
+        // Логгер
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div>[${time}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // Загрузка списка активностей
+        async function loadActivities() {
+            try {
+                log('Запрос списка активностей...');
+                const response = await fetch(`${API_URL}/market_list.php`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderActivities(data.activities);
+                    log(`Получено активностей: ${data.activities.length}`);
+                } else {
+                    log('Ошибка получения списка: ' + (data.message || 'Неизвестная ошибка'));
+                    document.getElementById('activities-list').innerHTML = '<p style="color:red">Ошибка загрузки списка</p>';
+                }
+            } catch (error) {
+                log('Ошибка сети: ' + error.message);
+                document.getElementById('activities-list').innerHTML = '<p style="color:red">Ошибка соединения с сервером</p>';
+            }
+        }
+
+        // Отрисовка списка
+        function renderActivities(activities) {
+            const container = document.getElementById('activities-list');
+            container.innerHTML = '';
+
+            if (activities.length === 0) {
+                container.innerHTML = '<p>Список активностей пуст.</p>';
+                return;
+            }
+
+            activities.forEach(activity => {
+                const isRegistered = activity.registered === true;
+                const isEnabled = activity.enabled === true;
+                
+                let statusText = 'Не подключена';
+                let statusClass = 'disabled';
+                let btnText = 'Подключить';
+                let btnClass = 'btn-enable';
+                let action = 'enable';
+
+                if (isRegistered && isEnabled) {
+                    statusText = 'Активна';
+                    statusClass = 'enabled';
+                    btnText = 'Отключить';
+                    btnClass = 'btn-disable';
+                    action = 'disable';
+                } else if (isRegistered && !isEnabled) {
+                    statusText = 'Зарегистрирована (выключена)';
+                    statusClass = 'registered';
+                    btnText = 'Включить';
+                    btnClass = 'btn-enable';
+                    action = 'enable';
+                }
+
+                const card = document.createElement('div');
+                card.className = 'activity-card';
+                card.innerHTML = `
+                    <div class="activity-info">
+                        <h3>${activity.name}</h3>
+                        <p>${activity.description}</p>
+                        <span class="status ${statusClass}">${statusText}</span>
+                    </div>
+                    <button 
+                        class="${btnClass}" 
+                        onclick="toggleActivity('${activity.code}', '${action}')"
+                        id="btn-${activity.code}"
+                    >
+                        ${btnText}
+                    </button>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Переключение статуса
+        async function toggleActivity(code, action) {
+            const btn = document.getElementById(`btn-${code}`);
+            btn.classList.add('btn-loading');
+            btn.disabled = true;
+            
+            log(`Отправка запроса на ${action} активности ${code}...`);
+
+            try {
+                const formData = new FormData();
+                formData.append('code', code);
+                formData.append('action', action);
+
+                const response = await fetch(`${API_URL}/market_toggle.php`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    log(`Успешно: ${result.message}`);
+                    // Перезагружаем список через секунду
+                    setTimeout(loadActivities, 1000);
+                } else {
+                    log(`Ошибка: ${result.message}`);
+                    btn.classList.remove('btn-loading');
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                log(`Ошибка сети: ${error.message}`);
+                btn.classList.remove('btn-loading');
+                btn.disabled = false;
+            }
+        }
+
+        // Запуск при загрузке
+        document.addEventListener('DOMContentLoaded', loadActivities);
+    </script>
+</body>
+</html>
