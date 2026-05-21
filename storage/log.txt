@@ -7,3 +7,4 @@
 2026-05-21 14:30:03 BITRIX CALL: bizproc.activity.add
 2026-05-21 14:33:57 BITRIX CALL: methods
 2026-05-21 14:34:33 INSTALL: {"domain":"activity-store.bitrix24.com","member_id":"7b012d180b90cd474e4a08cf18230446","access_token":"08260f6a008512650085125b00000001f0f107c3a5bb817c2581b2a1669406a7f1c4c2","refresh_token":"f8a4366a008512650085125b00000001f0f1075874d82ee5dcf639947980353f687163","server_endpoint":"https:\/\/oauth.bitrix.info\/rest\/","application_token":"a8cb7a455e47a607286e1c09f4774fe3","installed_at":1779374073}
+2026-05-21 16:59:14 INSTALL: {"domain":"activity-store.bitrix24.com","member_id":"7b012d180b90cd474e4a08cf18230446","access_token":"f2470f6a008512650085125b00000001f0f10764d7bdd6b762da69cc6f29e502129c2c","refresh_token":"e2c6366a008512650085125b00000001f0f107ca3d0447054acfab921b56c5394051c3","server_endpoint":"https:\/\/oauth.bitrix.info\/rest\/","application_token":"a8cb7a455e47a607286e1c09f4774fe3","installed_at":1779382754}

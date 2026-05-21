@@ -1,5 +1,9 @@
 <?php
 
+ini_set('display_errors', 0); 
+error_reporting(0);
+header('Content-Type: application/json');
+
 /**
  * API эндпоинт для подключения/отключения активности.
  * Вызывается при нажатии кнопки в витрине.
@@ -48,32 +52,28 @@ try {
         // Сначала регистрируем активность в Bitrix24 (если еще не зарегистрирована)
         $status = $stateManager->getStatus($activityCode);
         
-        if (!$status['registered']) {
-            // Регистрация активности через bizproc.activity.add
-            $activityInfo = ActivityRegistry::getByCode($activityCode);
-            
-            $registerResult = $bitrixClient->call('bizproc.activity.add', [
-                'CODE' => $activityCode,
-                'NAME' => $activityInfo['name'],
-                'DESCRIPTION' => $activityInfo['description'],
-                // URL обработчика - единый роутер с параметром ACTIVITY_CODE
-                'HANDLER_URL' => 'https://' . $_SERVER['HTTP_HOST'] . '/api/activity/handle?code=' . $activityCode,
-            ]);
-
-            if (empty($registerResult['result'])) {
-                throw new Exception('Не удалось зарегистрировать активность в Bitrix24: ' . 
-                    json_encode($registerResult));
-            }
-
-            // Обновляем статус
-            $stateManager->setStatus($activityCode, [
-                'registered' => true,
-                'enabled' => true,
-            ]);
+        if ($action === 'enable') {
+            // При включении мы регистрируем активность в Б24 и ставим флаг enabled
+            // Здесь должен быть вызов $bitrixClient->call('bizproc.activity.add', ...)
+            // Для MVP пока просто меняем статус в памяти/опциях
+    
+            $registered = true;
+            $enabled = true;
+    
+            $stateManager->setStatus($activityCode, $registered, $enabled);
+    
+            echo json_encode(['success' => true, 'message' => 'Активность подключена']);
+        } elseif ($action === 'disable') {
+            // При отключении только снимаем флаг enabled, но не удаляем из реестра Б24
+            $registered = true; // Остается зарегистрированной
+            $enabled = false;
+    
+            $stateManager->setStatus($activityCode, $registered, $enabled);
+    
+            echo json_encode(['success' => true, 'message' => 'Активность отключена']);
         } else {
-            // Активность уже зарегистрирована, просто включаем
-            $stateManager->enable($activityCode);
-        }
+            throw new Exception('Неверное действие');
+    }
 
         echo json_encode([
             'success' => true,

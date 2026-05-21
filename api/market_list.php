@@ -1,5 +1,8 @@
 <?php
 
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 /**
  * API эндпоинт для получения списка активностей и их статусов.
  * Используется витриной для отображения доступных активностей.
@@ -7,6 +10,8 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../config/bootstrap.php';
+require_once __DIR__ . '/../src/Core/ActivityRegistry.php';
+require_once __DIR__ . '/../src/Core/ActivityStateManager.php';
 
 use App\Core\ActivityRegistry;
 use App\Core\ActivityStateManager;

@@ -16,5 +16,14 @@
         "server_endpoint": "https:\/\/oauth.bitrix.info\/rest\/",
         "application_token": "a8cb7a455e47a607286e1c09f4774fe3",
         "installed_at": 1779374073
+    },
+    {
+        "domain": "activity-store.bitrix24.com",
+        "member_id": "7b012d180b90cd474e4a08cf18230446",
+        "access_token": "f2470f6a008512650085125b00000001f0f10764d7bdd6b762da69cc6f29e502129c2c",
+        "refresh_token": "e2c6366a008512650085125b00000001f0f107ca3d0447054acfab921b56c5394051c3",
+        "server_endpoint": "https:\/\/oauth.bitrix.info\/rest\/",
+        "application_token": "a8cb7a455e47a607286e1c09f4774fe3",
+        "installed_at": 1779382754
     }
 ]

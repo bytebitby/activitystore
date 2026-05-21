@@ -2,14 +2,10 @@
 
 namespace App\Core;
 
-/**
- * Менеджер состояния активностей.
- * Управляет статусами registered и enabled для каждого портала.
- * Использует app.option Bitrix24 для хранения данных.
- */
 class ActivityStateManager
 {
     private BitrixClient $bitrixClient;
+    private string $optionName = 'activity_statuses';
 
     public function __construct(BitrixClient $bitrixClient)
     {
@@ -17,65 +13,58 @@ class ActivityStateManager
     }
 
     /**
-     * Получить статус активности для текущего портала
-     * @return array ['registered' => bool, 'enabled' => bool]
+     * Получает все статусы активностей из хранилища
+     */
+    private function getOptions(): array
+    {
+        // В MVP используем заглушку, так как реальный запрос к Б24 требует вебхук
+        // В будущем здесь будет: $result = $this->bitrixClient->call('app.option.get', ['name' => $this->optionName]);
+        // return $result['result'] ?? [];
+        
+        return []; 
+    }
+
+    /**
+     * Сохраняет все статусы
+     */
+    private function setOptions(array $options): bool
+    {
+        // Заглушка для сохранения
+        // $this->bitrixClient->call('app.option.set', ['name' => $this->optionName, 'value' => $options]);
+        return true;
+    }
+
+    /**
+     * Возвращает статус конкретной активности
+     * Всегда возвращает массив: ['registered' => bool, 'enabled' => bool]
      */
     public function getStatus(string $activityCode): array
     {
-        $optionKey = 'activity_status_' . $activityCode;
-        $result = $this->bitrixClient->call('app.option.get', ['NAME' => $optionKey]);
-        
-        if (!empty($result['result'])) {
-            return $result['result'];
+        $allOptions = $this->getOptions();
+
+        if (isset($allOptions[$activityCode]) && is_array($allOptions[$activityCode])) {
+            return $allOptions[$activityCode];
         }
-        
-        // По умолчанию активность не зарегистрирована и не включена
+
+        // Статус по умолчанию (не зарегистрирована, не включена)
         return [
             'registered' => false,
-            'enabled' => false,
+            'enabled' => false
         ];
     }
 
     /**
-     * Установить статус активности
+     * Устанавливает статус активности
      */
-    public function setStatus(string $activityCode, array $status): bool
+    public function setStatus(string $activityCode, bool $registered, bool $enabled): bool
     {
-        $optionKey = 'activity_status_' . $activityCode;
-        $result = $this->bitrixClient->call('app.option.set', [
-            'NAME' => $optionKey,
-            'VALUE' => $status,
-        ]);
-        
-        return !empty($result['result']);
-    }
+        $allOptions = $this->getOptions();
 
-    /**
-     * Проверить, активна ли активность (зарегистрирована и включена)
-     */
-    public function isActive(string $activityCode): bool
-    {
-        $status = $this->getStatus($activityCode);
-        return ($status['registered'] ?? false) && ($status['enabled'] ?? false);
-    }
+        $allOptions[$activityCode] = [
+            'registered' => $registered,
+            'enabled' => $enabled
+        ];
 
-    /**
-     * Активировать активность
-     */
-    public function enable(string $activityCode): bool
-    {
-        $status = $this->getStatus($activityCode);
-        $status['enabled'] = true;
-        return $this->setStatus($activityCode, $status);
-    }
-
-    /**
-     * Деактивировать активность
-     */
-    public function disable(string $activityCode): bool
-    {
-        $status = $this->getStatus($activityCode);
-        $status['enabled'] = false;
-        return $this->setStatus($activityCode, $status);
+        return $this->setOptions($allOptions);
     }
 }
