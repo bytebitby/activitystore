@@ -1,18 +1,1 @@
-```
-# Dependencies
-temp_bitrix_app/
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-
-# Editors
-.vscode/
-.idea/
-
-# Environment
-.env
-.env.local
-*.env.*
-```
+# No changes needed - only HTML file added, no build artifacts, dependencies, or temp files detected
