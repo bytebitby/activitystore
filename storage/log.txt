@@ -1,0 +1,9 @@
+2026-05-21 12:59:53 Test log entry
+2026-05-21 13:07:55 INSTALL: {"domain":"test.bitrix24.ru","member_id":"abc","access_token":"123","refresh_token":"456","server_endpoint":"","application_token":"","installed_at":1779368875}
+2026-05-21 13:11:27 BITRIX CALL: app.info
+2026-05-21 13:40:01 INSTALL: {"domain":"activity-store.bitrix24.com","member_id":"7b012d180b90cd474e4a08cf18230446","access_token":"41190f6a008512650085125b00000001f0f107ea9a142d54e2810c81423a27b21ad03e","refresh_token":"3198366a008512650085125b00000001f0f107ff15e9ef55099c5a80d34514a5c93a43","server_endpoint":"https:\/\/oauth.bitrix.info\/rest\/","application_token":"a8cb7a455e47a607286e1c09f4774fe3","installed_at":1779370801}
+2026-05-21 13:41:29 BITRIX CALL: app.info
+2026-05-21 14:26:07 BITRIX CALL: app.info
+2026-05-21 14:30:03 BITRIX CALL: bizproc.activity.add
+2026-05-21 14:33:57 BITRIX CALL: methods
+2026-05-21 14:34:33 INSTALL: {"domain":"activity-store.bitrix24.com","member_id":"7b012d180b90cd474e4a08cf18230446","access_token":"08260f6a008512650085125b00000001f0f107c3a5bb817c2581b2a1669406a7f1c4c2","refresh_token":"f8a4366a008512650085125b00000001f0f1075874d82ee5dcf639947980353f687163","server_endpoint":"https:\/\/oauth.bitrix.info\/rest\/","application_token":"a8cb7a455e47a607286e1c09f4774fe3","installed_at":1779374073}
