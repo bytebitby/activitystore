@@ -8,15 +8,6 @@ namespace App\Core;
  */
 class ActivityRegistry
 {
-    /**
-     * Список доступных активностей.
-     * Каждая активность имеет:
-     * - code: уникальный код (передается в bizproc.activity.add как ACTIVITY_CODE)
-     * - name: название для отображения
-     * - description: описание
-     * - icon: путь к иконке (опционально)
-     * - handler: имя класса-обработчика
-     */
     private static array $activities = [
         'test_activity' => [
             'code' => 'test_activity',

@@ -1,105 +1,83 @@
 <?php
 
-ini_set('display_errors', 0); 
-error_reporting(0);
 header('Content-Type: application/json');
 
-/**
- * API эндпоинт для подключения/отключения активности.
- * Вызывается при нажатии кнопки в витрине.
- */
-
-require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../config/bootstrap.php';
 
 use App\Core\ActivityRegistry;
-use App\Core\ActivityStateManager;
-use App\Core\BitrixClient;
 
-header('Content-Type: application/json');
-
-// Проверка метода запроса
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
-    echo json_encode(['error' => 'Method not allowed']);
+    echo json_encode(['error' => 'POST only']);
     exit;
 }
 
-// Получение данных из запроса
 $input = json_decode(file_get_contents('php://input'), true);
-$activityCode = $input['activity_code'] ?? null;
-$action = $input['action'] ?? null; // 'enable' или 'disable'
+$code = $input['activity_code'] ?? null;
 
-if (!$activityCode || !$action) {
+if (!$code) {
     http_response_code(400);
-    echo json_encode(['error' => 'Необходимо указать activity_code и action']);
+    echo json_encode(['error' => 'activity_code required']);
     exit;
 }
 
-// Проверка существования активности в реестре
-if (!ActivityRegistry::exists($activityCode)) {
+$activity = ActivityRegistry::getByCode($code);
+
+if (!$activity) {
     http_response_code(404);
-    echo json_encode(['error' => "Активность '{$activityCode}' не найдена"]);
+    echo json_encode(['error' => 'Activity not found']);
     exit;
 }
 
-try {
-    // Инициализация клиента Bitrix24
-    $bitrixClient = new BitrixClient();
-    $stateManager = new ActivityStateManager($bitrixClient);
+/* PORTAL */
+$portalsFile = __DIR__ . '/../storage/portals.json';
+$portals = json_decode(file_get_contents($portalsFile), true);
 
-    if ($action === 'enable') {
-        // Сначала регистрируем активность в Bitrix24 (если еще не зарегистрирована)
-        $status = $stateManager->getStatus($activityCode);
-        
-        if ($action === 'enable') {
-            // При включении мы регистрируем активность в Б24 и ставим флаг enabled
-            // Здесь должен быть вызов $bitrixClient->call('bizproc.activity.add', ...)
-            // Для MVP пока просто меняем статус в памяти/опциях
-    
-            $registered = true;
-            $enabled = true;
-    
-            $stateManager->setStatus($activityCode, $registered, $enabled);
-    
-            echo json_encode(['success' => true, 'message' => 'Активность подключена']);
-        } elseif ($action === 'disable') {
-            // При отключении только снимаем флаг enabled, но не удаляем из реестра Б24
-            $registered = true; // Остается зарегистрированной
-            $enabled = false;
-    
-            $stateManager->setStatus($activityCode, $registered, $enabled);
-    
-            echo json_encode(['success' => true, 'message' => 'Активность отключена']);
-        } else {
-            throw new Exception('Неверное действие');
-    }
+$portalId = array_key_first($portals);
+$portal = $portals[$input['member_id']] ?? array_values($portals)[0];
 
-        echo json_encode([
-            'success' => true,
-            'message' => 'Активность успешно подключена',
-            'status' => $stateManager->getStatus($activityCode),
-        ]);
+$domain = $portal['domain'];
+$auth = $portal['auth_id'];
 
-    } elseif ($action === 'disable') {
-        // Отключаем активность
-        $stateManager->disable($activityCode);
+/* REGISTER BITRIX ACTIVITY */
+$url = "https://{$domain}/rest/bizproc.activity.add.json";
 
-        echo json_encode([
-            'success' => true,
-            'message' => 'Активность отключена',
-            'status' => $stateManager->getStatus($activityCode),
-        ]);
+$postFields = [
+    'auth' => $auth,
+    'CODE' => $activity['code'],
+    'NAME' => $activity['bizproc_name'] ?? $activity['name'],
+    'DESCRIPTION' => $activity['description'],
+    'HANDLER' => 'https://' . $_SERVER['HTTP_HOST'] . '/api/activity_handle.php?code=' . $activity['code']
+];
 
-    } else {
-        http_response_code(400);
-        echo json_encode(['error' => 'Недопустимое действие. Используйте enable или disable']);
-    }
+$ch = curl_init($url);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($postFields));
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
-} catch (\Exception $e) {
-    http_response_code(500);
-    echo json_encode([
-        'error' => 'Ошибка: ' . $e->getMessage(),
-        'trace' => $e->getTraceAsString(),
-    ]);
-}
+$response = curl_exec($ch);
+curl_close($ch);
+
+$result = json_decode($response, true);
+
+/* SAVE STATE */
+$stateFile = __DIR__ . '/../storage/activity_states.json';
+
+$state = file_exists($stateFile)
+    ? json_decode(file_get_contents($stateFile), true)
+    : [];
+
+$state[$portalId][$code] = [
+    'registered' => true,
+    'enabled' => true,
+    'bitrix_result' => $result
+];
+
+file_put_contents($stateFile, json_encode($state, JSON_PRETTY_PRINT));
+
+echo json_encode([
+    'success' => true,
+    'activity' => $code,
+    'bitrix' => $result
+]);

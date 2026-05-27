@@ -1,5 +1,22 @@
 <?php
 
+file_put_contents(
+    __DIR__ . '/../storage/activity_debug.txt',
+    print_r([
+        '_GET' => $_GET,
+        '_POST' => $_POST,
+        '_REQUEST' => $_REQUEST,
+        'RAW' => file_get_contents('php://input')
+    ], true)
+);
+
+header('Content-Type: application/json');
+
+echo json_encode([
+    'result' => [
+        'success' => true
+    ]
+]);
 /**
  * Единый обработчик вызовов активностей от Bitrix24.
  * Получает код активности из параметра и делегирует обработку роутеру.
