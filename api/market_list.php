@@ -1,56 +1,79 @@
 <?php
 
 ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
-/**
- * API эндпоинт для получения списка активностей и их статусов.
- * Используется витриной для отображения доступных активностей.
- */
-
-require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/../config/bootstrap.php';
-require_once __DIR__ . '/../src/Core/ActivityRegistry.php';
-require_once __DIR__ . '/../src/Core/ActivityStateManager.php';
-
-use App\Core\ActivityRegistry;
-use App\Core\ActivityStateManager;
-use App\Core\BitrixClient;
 
 header('Content-Type: application/json');
 
-try {
-    // Инициализация клиента Bitrix24 и менеджера состояния
-    $bitrixClient = new BitrixClient();
-    $stateManager = new ActivityStateManager($bitrixClient);
-    
-    // Получение всех активностей из реестра
-    $allActivities = ActivityRegistry::getAll();
-    
-    // Формирование ответа со статусами
-    $result = [];
-    foreach ($allActivities as $code => $activityInfo) {
-        $status = $stateManager->getStatus($code);
-        
-        $result[] = [
-            'code' => $code,
-            'name' => $activityInfo['name'],
-            'description' => $activityInfo['description'],
-            'icon' => $activityInfo['icon'] ?? null,
-            'registered' => $status['registered'] ?? false,
-            'enabled' => $status['enabled'] ?? false,
-        ];
-    }
-    
-    echo json_encode([
-        'success' => true,
-        'activities' => $result,
-    ]);
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../config/bootstrap.php';
 
-} catch (\Exception $e) {
-    http_response_code(500);
+use App\Core\ActivityRegistry;
+use App\Core\ActivityStateManager;
+
+/**
+ * PORTALS
+ */
+$portalsFile = __DIR__ . '/../storage/portals.json';
+
+if (!file_exists($portalsFile)) {
     echo json_encode([
         'success' => false,
-        'error' => 'Ошибка: ' . $e->getMessage(),
+        'error' => 'portals.json not found'
     ]);
+
+    exit;
 }
+
+$portals = json_decode(
+    file_get_contents($portalsFile),
+    true
+);
+
+$portalId = array_key_first($portals);
+
+if (!$portalId) {
+    echo json_encode([
+        'success' => false,
+        'error' => 'No portal installed'
+    ]);
+
+    exit;
+}
+
+/**
+ * STATE
+ */
+$stateManager = new ActivityStateManager();
+
+/**
+ * ACTIVITIES
+ */
+$activities = ActivityRegistry::getAll();
+
+$result = [];
+
+foreach ($activities as $code => $activity) {
+
+    $status = $stateManager->getStatus(
+        $portalId,
+        $code
+    );
+
+    $result[] = [
+        'code' => $code,
+        'name' => $activity['name'],
+        'description' => $activity['description'],
+        'registered' => $status['registered'] ?? false,
+        'enabled' => $status['enabled'] ?? false
+    ];
+}
+
+/**
+ * RESPONSE
+ */
+echo json_encode([
+    'success' => true,
+    'portal_id' => $portalId,
+    'activities' => $result
+]);

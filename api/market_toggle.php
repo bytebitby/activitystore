@@ -2,82 +2,195 @@
 
 header('Content-Type: application/json');
 
+require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../config/bootstrap.php';
 
 use App\Core\ActivityRegistry;
+use App\Core\ActivityStateManager;
+use App\Core\BitrixClient;
+
+/**
+ * ONLY POST
+ */
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+
     http_response_code(405);
-    echo json_encode(['error' => 'POST only']);
+
+    echo json_encode([
+        'error' => 'POST only'
+    ]);
+
     exit;
 }
 
-$input = json_decode(file_get_contents('php://input'), true);
-$code = $input['activity_code'] ?? null;
+/**
+ * INPUT
+ */
 
-if (!$code) {
+$input = json_decode(
+    file_get_contents('php://input'),
+    true
+);
+
+$activityCode = $input['activity_code'] ?? null;
+$action = $input['action'] ?? 'enable';
+
+if (!$activityCode) {
+
     http_response_code(400);
-    echo json_encode(['error' => 'activity_code required']);
+
+    echo json_encode([
+        'error' => 'activity_code required'
+    ]);
+
     exit;
 }
 
-$activity = ActivityRegistry::getByCode($code);
+/**
+ * REGISTRY
+ */
+
+$activity = ActivityRegistry::getByCode($activityCode);
 
 if (!$activity) {
+
     http_response_code(404);
-    echo json_encode(['error' => 'Activity not found']);
+
+    echo json_encode([
+        'error' => 'Activity not found'
+    ]);
+
     exit;
 }
 
-/* PORTAL */
+/**
+ * PORTALS
+ */
+
 $portalsFile = __DIR__ . '/../storage/portals.json';
-$portals = json_decode(file_get_contents($portalsFile), true);
+
+$portals = json_decode(
+    file_get_contents($portalsFile),
+    true
+);
+
+if (!$portals || !is_array($portals)) {
+
+    http_response_code(500);
+
+    echo json_encode([
+        'error' => 'No portals installed'
+    ]);
+
+    exit;
+}
 
 $portalId = array_key_first($portals);
-$portal = $portals[$input['member_id']] ?? array_values($portals)[0];
+
+$portal = $portals[$portalId];
 
 $domain = $portal['domain'];
-$auth = $portal['auth_id'];
+$authId = $portal['auth_id'];
 
-/* REGISTER BITRIX ACTIVITY */
-$url = "https://{$domain}/rest/bizproc.activity.add.json";
+/**
+ * SERVICES
+ */
 
-$postFields = [
-    'auth' => $auth,
-    'CODE' => $activity['code'],
-    'NAME' => $activity['bizproc_name'] ?? $activity['name'],
-    'DESCRIPTION' => $activity['description'],
-    'HANDLER' => 'https://' . $_SERVER['HTTP_HOST'] . '/api/activity_handle.php?code=' . $activity['code']
-];
+$bitrix = new BitrixClient(
+    $domain,
+    $authId
+);
 
-$ch = curl_init($url);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($postFields));
-curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+$stateManager = new ActivityStateManager();
 
-$response = curl_exec($ch);
-curl_close($ch);
+/**
+ * CURRENT STATE
+ */
 
-$result = json_decode($response, true);
+$currentState = $stateManager->getStatus(
+    $portalId,
+    $activityCode
+);
 
-/* SAVE STATE */
-$stateFile = __DIR__ . '/../storage/activity_states.json';
+/**
+ * DISABLE
+ */
 
-$state = file_exists($stateFile)
-    ? json_decode(file_get_contents($stateFile), true)
-    : [];
+if ($action === 'disable') {
 
-$state[$portalId][$code] = [
-    'registered' => true,
-    'enabled' => true,
-    'bitrix_result' => $result
-];
+    $bitrix->call(
+        'bizproc.activity.delete',
+        [
+            'CODE' => strtoupper($activityCode)
+        ]
+    );
 
-file_put_contents($stateFile, json_encode($state, JSON_PRETTY_PRINT));
+    $stateManager->uninstall(
+        $portalId,
+        $activityCode
+    );
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Activity uninstalled'
+    ]);
+
+    exit;
+}
+
+/**
+ * ALREADY INSTALLED
+ */
+
+if ($currentState['registered'] ?? false) {
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Already installed',
+        'state' => $currentState
+    ]);
+
+    exit;
+}
+
+/**
+ * REGISTER
+ */
+
+$result = $bitrix->call(
+    'bizproc.activity.add',
+    [
+        'CODE' => strtoupper($activityCode),
+
+        'NAME' => $activity['name'],
+
+        'DESCRIPTION' => $activity['description'],
+
+        'HANDLER' =>
+            'https://' .
+            $_SERVER['HTTP_HOST'] .
+            '/api/activity_handle.php',
+
+        'USE_SUBSCRIPTION' => 'Y'
+    ]
+);
+
+/**
+ * SAVE STATE
+ */
+
+$stateManager->install(
+    $portalId,
+    $activityCode
+);
+
+/**
+ * RESPONSE
+ */
 
 echo json_encode([
     'success' => true,
-    'activity' => $code,
+    'message' => 'Activity installed',
     'bitrix' => $result
 ]);

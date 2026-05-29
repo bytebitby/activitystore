@@ -2,10 +2,6 @@
 
 namespace App\Core;
 
-/**
- * Динамический роутер для обработки вызовов активностей.
- * Принимает ACTIVITY_CODE от Bitrix24 и направляет запрос нужному обработчику.
- */
 class ActivityRouter
 {
     private ActivityStateManager $stateManager;
@@ -15,50 +11,64 @@ class ActivityRouter
         $this->stateManager = $stateManager;
     }
 
-    /**
-     * Обработать вызов активности
-     * @param string $activityCode Код активности (передается из Bitrix24)
-     * @param array $params Параметры вызова от Bitrix24
-     * @return array Результат выполнения
-     */
-    public function handle(string $activityCode, array $params = []): array
-    {
-        // Проверка существования активности в реестре
+    public function handle(
+        string $memberId,
+        string $activityCode,
+        array $params = []
+    ): array {
+
+        $activityCode = strtolower($activityCode);
+
+        /**
+         * REGISTRY CHECK
+         */
         if (!ActivityRegistry::exists($activityCode)) {
             return [
                 'success' => false,
-                'error' => "Активность '{$activityCode}' не найдена в реестре",
+                'error' => 'Activity not found in registry'
             ];
         }
 
-        // Проверка статуса активности
-        if (!$this->stateManager->isActive($activityCode)) {
+        /**
+         * STATE CHECK
+         */
+        $status = $this->stateManager->getStatus(
+            $memberId,
+            $activityCode
+        );
+
+        if (!($status['enabled'] ?? false)) {
             return [
                 'success' => false,
-                'error' => "Активность '{$activityCode}' не активирована. Пожалуйста, подключите её в витрине.",
+                'error' => 'Activity disabled'
             ];
         }
 
-        // Получение информации об активности
-        $activityInfo = ActivityRegistry::getByCode($activityCode);
-        $handlerClass = $activityInfo['handler'];
+        /**
+         * HANDLER RESOLVE
+         */
+        $activity = ActivityRegistry::getByCode($activityCode);
 
-        // Проверка существования класса-обработчика
+        $handlerClass = $activity['handler'];
+
         if (!class_exists($handlerClass)) {
             return [
                 'success' => false,
-                'error' => "Обработчик для активности '{$activityCode}' не найден",
+                'error' => 'Handler class not found'
             ];
         }
 
-        // Создание экземпляра обработчика и выполнение
+        /**
+         * EXECUTE
+         */
         try {
             $handler = new $handlerClass();
             return $handler->execute($params);
-        } catch (\Exception $e) {
+
+        } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'error' => "Ошибка выполнения активности: " . $e->getMessage(),
+                'error' => $e->getMessage()
             ];
         }
     }
